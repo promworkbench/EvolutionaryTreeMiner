@@ -20,6 +20,7 @@ import org.processmining.plugins.etm.fitness.TreeFitnessAbstract;
 import org.processmining.plugins.etm.fitness.TreeFitnessInfo;
 import org.processmining.plugins.etm.fitness.metrics.ConfigurationFitness;
 import org.processmining.plugins.etm.fitness.metrics.EditDistanceWrapperRTEDAbsolute;
+import org.processmining.plugins.etm.fitness.metrics.FairnessReplay;
 import org.processmining.plugins.etm.fitness.metrics.FitnessReplay;
 import org.processmining.plugins.etm.fitness.metrics.Generalization;
 import org.processmining.plugins.etm.fitness.metrics.GeneralizationByFitnessReplayDeviation;
@@ -120,6 +121,10 @@ public class ETMParamFactory {
 	 * Standard weight for the simplicity quality dimension
 	 */
 	public static final double STD_SIMPLICITY_WEIGHT = 1;
+	/**
+	 * Standard weight for the fairness quality dimension
+	 */	
+	private static final double STD_FAIRNESS_WEIGHT = 10;
 
 	/**
 	 * Standard XEventClass classifier
@@ -564,11 +569,14 @@ public class ETMParamFactory {
 		Generalization ge = new Generalization(centralRegistry);
 		GeneralizationByFitnessReplayDeviation gd = new GeneralizationByFitnessReplayDeviation(centralRegistry);
 		SimplicityUselessNodes su = new SimplicityUselessNodes();
-
+		FairnessReplay fa = new FairnessReplay(centralRegistry, 
+				ProMCancelTerminationCondition.buildCanceller(centralRegistry.getContext())) ;
+        
 		oF.addEvaluator(fr, STD_REPLAYFITNESS_WEIGHT);
 		oF.addEvaluator(pe, STD_PRECISION_WEIGHT);
 		oF.addEvaluator(ge, STD_GENERALIZATION_WEIGHT);
 		oF.addEvaluator(su, STD_SIMPLICITY_WEIGHT);
+		oF.addEvaluator(fa, STD_FAIRNESS_WEIGHT);
 
 		return oF;
 	}
