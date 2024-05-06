@@ -8,6 +8,8 @@ import gnu.trove.set.TIntSet;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -74,8 +76,10 @@ public class FairnessReplay extends TreeFitnessAbstract {
 
 	private boolean lastResultReliable = true;
 	
-	protected volatile HashMap<String, String> tracesAndGroups = new HashMap<String, String>();
-
+	private volatile Map<String, String> tracesAndGroups = Collections.synchronizedMap(new HashMap<String, String>());
+	
+	private volatile Map<String, Long> tracesAndCosts = Collections.synchronizedMap(new HashMap<String, Long>());
+	
 	/**
 	 * Which configuration of the NAryTree to apply
 	 */
@@ -110,6 +114,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 
 	private CostCallback costCallback;
 
+	
 	/**
 	 * Deep-clone copy constructor.
 	 * 
@@ -215,19 +220,22 @@ public class FairnessReplay extends TreeFitnessAbstract {
 	public void defineSensitiveGroups(CentralRegistry registry) {
 		for (XTrace trace: registry.getLog()) {
 			String traceName = XUtils.getConceptName(trace); 
+//			XUtils.getEventAttributeKeys();
 			
+			System.out.println(traceName);
+			System.out.println(trace.getAttributes().toString());
 //			if (!trace.getAttributes().isEmpty()) {
 				if (trace.getAttributes().containsKey("fairness:group")) {
 					System.out.println("\n fairness:group exists................. continue \n");
 					String groupName = (String) XUtils.getAttributeValue(trace.getAttributes().get("fairness:group")); 
 //					if(groupName != null && !groupName.trim().isEmpty()) {
 						this.tracesAndGroups.put(traceName, groupName);
-//						System.out.print("tracesAndGroups..... " + tracesAndGroups);
+						System.out.print("tracesAndGroups.....  " + this.tracesAndGroups);
 				}
 						else {
 							System.out.println("\n fairness:group does NOT exist.................!!!!!!!!!! \n");
-////						String message = "The fairness:group column is missing in the log!";
-////						JOptionPane.showMessageDialog(new JFrame(), message, "Dialog", JOptionPane.ERROR_MESSAGE);
+//						String message = "The fairness:group column is missing in the log!";
+//						JOptionPane.showMessageDialog(new JFrame(), message, "Dialog", JOptionPane.ERROR_MESSAGE);
 					}
 				
 //			}
@@ -315,25 +323,24 @@ public class FairnessReplay extends TreeFitnessAbstract {
 			// The total move_on_model cost for aligning the empty trace is stored in the last optimal record of treeBasedAStar
 			int rawModelCost = (int) treeBasedAStar.getRawCost();
 
-			AtomicLong costGroupA = new AtomicLong();
-			AtomicLong costGroupB = new AtomicLong();
+			AtomicLong costSensitiveGroups = new AtomicLong();
+			AtomicLong costInsensitiveGroups = new AtomicLong();
 			
 			costCallback = new  CostCallback() {
 				
 				@Override
 				public void record(Trace trace, long cost) {
-//					defineSensitiveGroups(registry);
 					String group = tracesAndGroups.get(trace.getLabel());
+					String traceName = trace.getLabel().toString();
+					System.out.printf("traceName........", traceName);
 					if (group != null) {
-//					for (String group : tracesAndGroups.values()) {
+//					for (String group : tracesGroupsCosts.values()) {
 //						int freq = registry.getaStarAlgorithm().getTraceFreq(trace);
-						if (group.equalsIgnoreCase("True")) {   // equals... and change to true/false
-							costGroupA.addAndGet(cost);   /// cost of a variant of traces ... already multiplied by the number of 
-								// thread safe to add it to an array .. slow .. 
-							// get number of traces in one variant .. 
-							
+						if (group.equalsIgnoreCase("True")) {   
+							costSensitiveGroups.addAndGet(cost);   							
+//							tracesAndCosts.put(traceName, cost);                         // use this instead of costSensitiveGroupss etc
 						} else {
-							costGroupB.addAndGet(cost);
+							costInsensitiveGroups.addAndGet(cost);
 						}
 					}
 					
@@ -411,22 +418,28 @@ public class FairnessReplay extends TreeFitnessAbstract {
 				}
 
 				//Result is the total cost divided by the 'minimal' cost without synchronous moves
-				// old fitness from FitnessReplay class:-
 //				double fitness = 1.0 - (totalCost / (minLogCost + f * minModelCost));
-				// Fairness fitness:-
-				double fitness = Math.abs(Math.subtractExact(costGroupA.get(), costGroupB.get())); // cost to fitness.. normalise.. sum of all, sum of min.. for fitness.. 
+				
+				// cost to fitness.. normalise.. sum of all, sum of min.. for fitness.. 
+				double alpha = costSensitiveGroups.get() / (Math.sqrt(costSensitiveGroups.get() * costSensitiveGroups.get()) + Math.pow(costInsensitiveGroups.get(), 2)) ;
+				double fairness = Math.sin(2 * alpha);
+//				double fairness = 0;
+//				System.out.printf(, fairness);
+				
 				// avg cost ... divide by number of traces.. 
 				// then normalise it.. 
+				// sin alpha = c1 / sqrt (c^2 + c2^2)  
+				// sin 2alpha
 				
 //				System.out.println(recordCost + " vs " + totalCost);
 
 				if (logTreeIfExecutionTookMoreThan > 0 && (end - start) > logTreeIfExecutionTookMoreThan) {
 					System.out.println(String.format("Long calculation detected for tree (Fr = %1.3f, %.1fs):",
-							fitness, (end - start) / 1000.0));
+							fairness, (end - start) / 1000.0));
 					System.out.println(TreeUtils.toString(candidate, registry.getEventClasses()));
 				}
 
-				return fitness;
+				return fairness;
 			} catch (AStarException e) {
 				e.printStackTrace();
 				return info.getWorstFitnessValue();
