@@ -8,20 +8,30 @@ import gnu.trove.set.TIntSet;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
+import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 
 import nl.tue.astar.AStarException;
 import nl.tue.astar.AStarThread.Canceller;
 import nl.tue.astar.Trace;
 
+import org.deckfour.xes.extension.std.XConceptExtension;
+import org.deckfour.xes.model.XAttribute;
+import org.deckfour.xes.model.XLog;
+import org.deckfour.xes.model.XTrace;
 import org.processmining.framework.util.OsUtil;
 import org.processmining.framework.util.ui.widgets.ProMTextField;
+import org.processmining.log.utils.XUtils;
 import org.processmining.plugins.boudewijn.treebasedreplay.astar.ModelPrefix;
 import org.processmining.plugins.boudewijn.treebasedreplay.astar.TreeMarkingVisit;
 import org.processmining.plugins.etm.CentralRegistry;
@@ -51,9 +61,9 @@ import com.fluxicon.slickerbox.factory.SlickerFactory;
  */
 //FIXME check all class contents
 //FIXME Test Class thoroughly
-public class FitnessReplay extends TreeFitnessAbstract {
+public class FairnessReplay extends TreeFitnessAbstract {
 
-	public static final TreeFitnessInfo info = new TreeFitnessInfo(FitnessReplay.class, "Fr", "Replay Fitness",
+	public static final TreeFitnessInfo info = new TreeFitnessInfo(FairnessReplay.class, "Fr", "Replay Fitness",
 			"Calculates the optimal alignment between the log and the process tree to determine where deviations are",
 			Dimension.FITNESS, true);
 
@@ -65,7 +75,11 @@ public class FitnessReplay extends TreeFitnessAbstract {
 	protected final CentralRegistry registry;
 
 	private boolean lastResultReliable = true;
-
+	
+	private volatile Map<String, String> tracesAndGroups = Collections.synchronizedMap(new HashMap<String, String>());
+	
+	private volatile Map<String, Long> tracesAndCosts = Collections.synchronizedMap(new HashMap<String, Long>());
+	
 	/**
 	 * Which configuration of the NAryTree to apply
 	 */
@@ -98,12 +112,15 @@ public class FitnessReplay extends TreeFitnessAbstract {
 	 */
 	private int nrThreads;
 
+	private CostCallback costCallback;
+
+	
 	/**
 	 * Deep-clone copy constructor.
 	 * 
 	 * @param original
 	 */
-	public FitnessReplay(FitnessReplay original) {
+	public FairnessReplay(FairnessReplay original) {
 		this(original.registry, original.c, original.fitnessLimit, original.timeLimit,
 				original.detailedAlignmentInfoEnabled, original.maxBytestoUse, 1);
 	}
@@ -121,7 +138,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 	 *            A special canceller that cancels the alignment execution on
 	 *            the users request
 	 */
-	public FitnessReplay(CentralRegistry registry, Canceller c) {
+	public FairnessReplay(CentralRegistry registry, Canceller c) {
 		this(registry, c, -1, -1, false, -1, 1);
 	}
 
@@ -146,7 +163,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 	 *            The time limit in seconds that a single-trace alignment
 	 *            calculation can take. A negative value indicates no limit.
 	 */
-	public FitnessReplay(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit) {
+	public FairnessReplay(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit) {
 		this(registry, c, fitnessLimit, timeLimit, true, -1, 1);
 	}
 
@@ -187,7 +204,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 	 *            ETM use 1 is recommended and parallel calculations of trees is
 	 *            recommended.
 	 */
-	public FitnessReplay(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit,
+	public FairnessReplay(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit,
 			boolean detailedAlignmentInfoEnabled, long maxBytesToUse, int nrThreads) {
 		this.registry = registry;
 		this.c = c;
@@ -196,9 +213,35 @@ public class FitnessReplay extends TreeFitnessAbstract {
 		this.timeLimit = timeLimit;
 		this.detailedAlignmentInfoEnabled = detailedAlignmentInfoEnabled;
 		this.maxBytestoUse = maxBytesToUse;
-		this.nrThreads = nrThreads;
+		this.nrThreads = nrThreads; 
+		defineSensitiveGroups(registry);
 	}
-
+	
+	public void defineSensitiveGroups(CentralRegistry registry) {
+		for (XTrace trace: registry.getLog()) {
+			String traceName = XUtils.getConceptName(trace); 
+//			XUtils.getEventAttributeKeys();
+			
+			System.out.println(traceName);
+			System.out.println(trace.getAttributes().toString());
+//			if (!trace.getAttributes().isEmpty()) {
+				if (trace.getAttributes().containsKey("fairness:group")) {
+					System.out.println("\n fairness:group exists................. continue \n");
+					String groupName = (String) XUtils.getAttributeValue(trace.getAttributes().get("fairness:group")); 
+//					if(groupName != null && !groupName.trim().isEmpty()) {
+						this.tracesAndGroups.put(traceName, groupName);
+						System.out.print("tracesAndGroups.....  " + this.tracesAndGroups);
+				}
+						else {
+							System.out.println("\n fairness:group does NOT exist.................!!!!!!!!!! \n");
+//						String message = "The fairness:group column is missing in the log!";
+//						JOptionPane.showMessageDialog(new JFrame(), message, "Dialog", JOptionPane.ERROR_MESSAGE);
+					}
+				
+//			}
+		}
+	}
+ 
 	/**
 	 * {@inheritDoc}
 	 */
@@ -221,7 +264,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 			int[] syncMoveCount = new int[candidate.size()];
 			int[] aSyncMoveCount = new int[candidate.size()];
 			int[] moveCount = new int[candidate.size()];
-
+			
 			NAryTreeReplayer<?, ?, ?> treeBasedAStar = null;
 			try {
 				treeBasedAStar = setupReplayer(candidate, registry.getEmptyAStarAlgorithm(),
@@ -280,6 +323,30 @@ public class FitnessReplay extends TreeFitnessAbstract {
 			// The total move_on_model cost for aligning the empty trace is stored in the last optimal record of treeBasedAStar
 			int rawModelCost = (int) treeBasedAStar.getRawCost();
 
+			AtomicLong costSensitiveGroups = new AtomicLong();
+			AtomicLong costInsensitiveGroups = new AtomicLong();
+			
+			costCallback = new  CostCallback() {
+				
+				@Override
+				public void record(Trace trace, long cost) {
+					String group = tracesAndGroups.get(trace.getLabel());
+					String traceName = trace.getLabel().toString();
+					System.out.printf("traceName........", traceName);
+					if (group != null) {
+//					for (String group : tracesGroupsCosts.values()) {
+//						int freq = registry.getaStarAlgorithm().getTraceFreq(trace);
+						if (group.equalsIgnoreCase("True")) {   
+							costSensitiveGroups.addAndGet(cost);   							
+//							tracesAndCosts.put(traceName, cost);                         // use this instead of costSensitiveGroupss etc
+						} else {
+							costInsensitiveGroups.addAndGet(cost);
+						}
+					}
+					
+				};
+			};
+						
 			treeBasedAStar = setupReplayer(candidate, registry.getaStarAlgorithm(), marking2modelMove,
 					marking2visitCount, modelCosts, syncMoveCount, aSyncMoveCount, moveCount, alignments);
 
@@ -317,6 +384,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 					registry.getFitness(candidate).behaviorCounter = new BehaviorCounter(candidate.size());
 					registry.getFitness(candidate).setReliable(false);
 					return info.getWorstFitnessValue();
+	
 				}
 
 				//Calculate the minimal cost for replaying the log on an 'empty' model 
@@ -350,16 +418,28 @@ public class FitnessReplay extends TreeFitnessAbstract {
 				}
 
 				//Result is the total cost divided by the 'minimal' cost without synchronous moves
-				double fitness = 1.0 - (totalCost / (minLogCost + f * minModelCost));
+//				double fitness = 1.0 - (totalCost / (minLogCost + f * minModelCost));
+				
+				// cost to fitness.. normalise.. sum of all, sum of min.. for fitness.. 
+				double alpha = costSensitiveGroups.get() / (Math.sqrt(costSensitiveGroups.get() * costSensitiveGroups.get()) + Math.pow(costInsensitiveGroups.get(), 2)) ;
+				double fairness = Math.sin(2 * alpha);
+//				double fairness = 0;
+//				System.out.printf(, fairness);
+				
+				// avg cost ... divide by number of traces.. 
+				// then normalise it.. 
+				// sin alpha = c1 / sqrt (c^2 + c2^2)  
+				// sin 2alpha
+				
 //				System.out.println(recordCost + " vs " + totalCost);
 
 				if (logTreeIfExecutionTookMoreThan > 0 && (end - start) > logTreeIfExecutionTookMoreThan) {
 					System.out.println(String.format("Long calculation detected for tree (Fr = %1.3f, %.1fs):",
-							fitness, (end - start) / 1000.0));
+							fairness, (end - start) / 1000.0));
 					System.out.println(TreeUtils.toString(candidate, registry.getEventClasses()));
 				}
 
-				return fitness;
+				return fairness;
 			} catch (AStarException e) {
 				e.printStackTrace();
 				return info.getWorstFitnessValue();
@@ -415,6 +495,10 @@ public class FitnessReplay extends TreeFitnessAbstract {
 			treeBasedAStar.setType(PerformanceType.MEMORYEFFICIENT, 16 * 1024, alignment);
 			treeBasedAStar.setStubborn(true);
 			treeBasedAStar.setMaxNumberOfBlocksToUse(maxBytestoUse);
+			
+			treeBasedAStar.setCostCallback(costCallback);
+			// TODO : add setCostCallback... casting 
+			
 			return treeBasedAStar;
 		} catch (Exception e) {
 			System.out.println("Candidate: " + candidate);
@@ -531,7 +615,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 		this.detailedAlignmentInfoEnabled = detailedAlignmentInfoEnabled;
 	}
 
-	public static class FitnessReplayGUI extends TreeFitnessGUISettingsAbstract<FitnessReplay> {
+	public static class FitnessReplayGUI extends TreeFitnessGUISettingsAbstract<FairnessReplay> {
 
 		private static final long serialVersionUID = 1L;
 
@@ -592,14 +676,14 @@ public class FitnessReplay extends TreeFitnessAbstract {
 			this.setPreferredSize(new java.awt.Dimension(300, 30));
 		}
 
-		public FitnessReplay getTreeFitnessInstance(final CentralRegistry registry, Class<TreeFitnessAbstract> clazz) {
+		public FairnessReplay getTreeFitnessInstance(final CentralRegistry registry, Class<TreeFitnessAbstract> clazz) {
 			Canceller c = new ProMCancelTerminationCondition(registry.getContext()).getCanceller();
 
-			return new FitnessReplay(registry, c, Double.parseDouble(fitnessLimit.getText()),
+			return new FairnessReplay(registry, c, Double.parseDouble(fitnessLimit.getText()),
 					Double.parseDouble(timeLimit.getText()), true, -1, 1);
 		}
 
-		public void init(FitnessReplay instance) {
+		public void init(FairnessReplay instance) {
 			fitnessLimit.setText("" + instance.fitnessLimit);
 			timeLimit.setText("" + instance.timeLimit);
 		}

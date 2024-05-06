@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.processmining.plugins.boudewijn.treebasedreplay.TreeDelegate;
+import org.processmining.plugins.etm.fitness.metrics.CostCallback;
 import org.processmining.plugins.etm.model.narytree.NAryTree;
 import org.processmining.plugins.etm.model.narytree.replayer.hybridilp.NAryTreeHybridILPTail;
 
@@ -49,6 +50,8 @@ public abstract class AbstractNAryTreeReplayer<H extends NAryTreeHead, T extends
 	private final ExecutorService executor;
 	private final AStarObserver[] observers;
 	private AtomicBoolean wasReliable = new AtomicBoolean(true);
+	
+	private CostCallback costCallback = null;
 
 	/**
 	 * Indicates how many blocks can be used in the store/statespace. If more
@@ -367,9 +370,14 @@ public abstract class AbstractNAryTreeReplayer<H extends NAryTreeHead, T extends
 		//		while (thread.wasReliable()) {
 		//			thread.getOptimalRecord(canceller, r.getTotalCost());
 		//		}
+	
 
 		if (wasReliable.get() && (r != null)) {
-			penaltyCost.addAndGet(calculateCostAndPostProcess(verbose, trace, r, frequency));
+			long traceCost = calculateCostAndPostProcess(verbose, trace, r, frequency);
+			if (costCallback != null) {
+				costCallback.record(trace, traceCost);
+			}
+			penaltyCost.addAndGet(traceCost);			
 			rawCost.addAndGet((long) r.getTotalCost());
 		} else {
 			// hmm, no fitness found, make expensive as this model is not even close to a fitting candidate
@@ -569,6 +577,10 @@ public abstract class AbstractNAryTreeReplayer<H extends NAryTreeHead, T extends
 
 	public void setStubborn(boolean stubborn) {
 		this.stubborn = stubborn;
+	}
+
+	public void setCostCallback(CostCallback costCallback) {
+		this.costCallback = costCallback;
 	}
 
 }
