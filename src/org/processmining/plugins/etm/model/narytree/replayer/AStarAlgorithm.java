@@ -8,9 +8,11 @@ import gnu.trove.map.TObjectShortMap;
 import gnu.trove.map.hash.TObjectIntHashMap;
 import gnu.trove.map.hash.TObjectShortHashMap;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeSet;
 
 import nl.tue.astar.AStarThread;
@@ -23,6 +25,8 @@ import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.extension.std.XConceptExtension;
 import org.deckfour.xes.model.XLog;
 
+import com.kenai.jffi.Array;
+
 public class AStarAlgorithm {
 
 	protected final TObjectIntMap<Trace> converted;
@@ -34,10 +38,14 @@ public class AStarAlgorithm {
 	protected final XLog log;
 	protected final int lengthLongestTrace;
 	protected final int[] maxOccInTrace;
+	
+	private final boolean isGroupingTraces;
 
 	public AStarAlgorithm() {
 		this.log = null;
 		this.classes = new XEventClasses(new XEventNameClassifier());
+		this.isGroupingTraces = true;
+		
 		act2index = new TObjectShortHashMap<XEventClass>();
 		index2act = new XEventClass[0];
 		act2cost = new int[0];
@@ -45,12 +53,13 @@ public class AStarAlgorithm {
 		converted = new TObjectIntHashMap<Trace>(1);
 		converted.put(new LinearTrace("empty trace", 0), 1);
 		lengthLongestTrace = 0;
-		maxOccInTrace = new int[0];
+		maxOccInTrace = new int[0];		
 	}
 
 	public AStarAlgorithm(XEventClasses classes) {
 		this.log = null;
 		this.classes = classes;
+		this.isGroupingTraces = true;
 
 		act2index = new TObjectShortHashMap<XEventClass>((short) classes.size(), 0.5f, (short) -1);
 		index2act = new XEventClass[classes.size()];
@@ -71,9 +80,14 @@ public class AStarAlgorithm {
 	}
 
 	public AStarAlgorithm(XLog log, XEventClasses classes, Map<XEventClass, Integer> activity2Cost) {
+		this(log, classes, activity2Cost, true);
+	}
+	
+	public AStarAlgorithm(XLog log, XEventClasses classes, Map<XEventClass, Integer> activity2Cost, boolean isGroupingTraces) {
 		this.log = log;
 		this.classes = classes;
-
+		this.isGroupingTraces = isGroupingTraces;
+		
 		act2index = new TObjectShortHashMap<XEventClass>((short) classes.size(), 0.5f, (short) -1);
 		index2act = new XEventClass[classes.size()];
 		act2cost = new int[classes.size()];
@@ -103,6 +117,7 @@ public class AStarAlgorithm {
 	public AStarAlgorithm(AStarAlgorithm originalAStar, TObjectIntMap<Trace> _converted,  int _lengthLongestTrace, int[] _maxOccInTrace) {
 		this.log = originalAStar.log;
 		this.classes = originalAStar.classes;
+		this.isGroupingTraces = originalAStar.isGroupingTraces;
 
 		act2index = originalAStar.act2index;
 		index2act = originalAStar.index2act;
@@ -147,12 +162,27 @@ public class AStarAlgorithm {
 		for (int i = 0; i < occ.length; i++) {
 			maxOccInTrace[i] = Math.max(maxOccInTrace[i], occ[i]);
 		}
-		return new LinearTrace(label, activities);
-		//		{
-		//			public boolean equals(Object o) {
-		//				return this == o;
-		//			}
-		//		};
+		
+		if (isGroupingTraces) {
+			return new LinearTrace(label, activities);
+			
+		} else {
+			return new LinearTrace(label, activities)
+				{
+					public boolean equals(Object o) {
+						return o instanceof Trace 
+								&& getLabel().equals(((Trace) o).getLabel()) 
+								&& super.equals(o);
+					}
+
+					@Override
+					public int hashCode() {
+						return Arrays.deepHashCode(new Object[] { this.activities, this.label });
+					}				
+					
+				};
+			
+		}
 	}
 
 	public XEventClasses getClasses() {
