@@ -347,8 +347,9 @@ public class FairnessReplay extends TreeFitnessAbstract {
 				};
 			};
 						
-			treeBasedAStar = setupReplayer(candidate, registry.getaStarAlgorithm(), marking2modelMove,
-					marking2visitCount, modelCosts, syncMoveCount, aSyncMoveCount, moveCount, alignments);
+			treeBasedAStar = setupReplayer(candidate, 
+					registry.getaStarAlgorithmWithoutGrouping(),  // FM here we need the log without grouping since a trace variant may exist in multiple groups
+					marking2modelMove, marking2visitCount, modelCosts, syncMoveCount, aSyncMoveCount, moveCount, alignments);
 
 			/*
 			 * And run and return it

@@ -55,7 +55,9 @@ public class CentralRegistry {
 	private XLogInfo logInfo;
 
 	private AStarAlgorithm aStarAlgorithm;
-
+	// FM, for fairness we need the alignment cost for the ungrouped log
+	private AStarAlgorithm aStarAlgorithmWithoutGrouping;
+	
 	//USING Arya's defaults (changed from 1:1 on 17-3-2013. Old results will be different!!!) 
 	public static final int MMcost = 2;
 	public static final int MLcost = 5;
@@ -87,7 +89,7 @@ public class CentralRegistry {
 	// Solution: clean the cache at each iteration
 	private transient LRUMap<NAryTree, List<NAryTreeHistory>> treeHistoryCache;
 
-	private AStarAlgorithm emptyAStarAlgorithm;
+	private AStarAlgorithm emptyAStarAlgorithm;	
 
 	/**
 	 * Creates a new tree factory that creates new nodes given a list of event
@@ -404,6 +406,13 @@ public class CentralRegistry {
 	public AStarAlgorithm getaStarAlgorithm() {
 		return aStarAlgorithm;
 	}
+	
+	/**
+	 * @return the aStarAlgorithm but without grouping traces into variants, each individual trace is retained separately
+	 */
+	public AStarAlgorithm getaStarAlgorithmWithoutGrouping() {
+		return aStarAlgorithmWithoutGrouping;
+	}
 
 	/**
 	 * Comparator on value to sort treemap of event classes
@@ -466,6 +475,7 @@ public class CentralRegistry {
 			estimatedMinLogCost += eventClass.size() * MLcost;
 		}
 		aStarAlgorithm = new AStarAlgorithm(log, eventClasses, logCosts);
+		aStarAlgorithmWithoutGrouping = new AStarAlgorithm(log, eventClasses, logCosts, false);
 		emptyAStarAlgorithm = new AStarAlgorithm(eventClasses);
 		updateMinLogCost();
 	}
