@@ -334,7 +334,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 							countGroupB.incrementAndGet();
 						}
 					} else {
-						System.out.println("Fairness group name is " + group);
+						System.out.println("Fairness group name is null");
 					}
 				};
 			};
@@ -410,23 +410,38 @@ public class FairnessReplay extends TreeFitnessAbstract {
 					behC.setMarking2VisitCount(marking2visitCount);
 				}
 				
+				AtomicLong avgA  = new AtomicLong();
+				AtomicLong avgB  = new AtomicLong();
+				avgA.getAndSet(0);
+				avgB.getAndSet(0);
 				// Compute the average cost of group A:-
-				costGroupA.updateAndGet( val -> Math.floorDiv(costGroupA.get(), countGroupA.get()));
+				if(countGroupA != null && countGroupA.get() != 0) {
+					costGroupA.updateAndGet( val -> Math.floorDiv(costGroupA.get(), countGroupA.get()));
+					avgA.getAndSet(1);
+				}
 				// Compute the average cost of group B:-
-				costGroupB.updateAndGet( val -> Math.floorDiv(costGroupB.get(), countGroupB.get()));
+				if (countGroupA != null && costGroupB.get() != 0) {
+					costGroupB.updateAndGet( val -> Math.floorDiv(costGroupB.get(), countGroupB.get()));
+					avgB.getAndSet(1);
+				}
 				System.out.println("\n Total costs of A and B:-" + "\n costGroupA: " + costGroupA + "\n costGroupB: " + costGroupB);
-
-				double fairness = Math.sin(2*Math.asin(costGroupA.get() / Math.sqrt(Math.pow(costGroupA.get(), 2) + Math.pow(costGroupB.get(), 2))));			
+				
+				double fairness = 0;
+				
+				if (avgA.get() == 1 && avgB.get() == 1) {
+					fairness = Math.sin(2*Math.asin(costGroupA.get() / Math.sqrt(Math.pow(costGroupA.get(), 2) + Math.pow(costGroupB.get(), 2))));			
+				}
 				System.out.printf("\n Fairness (Fa):", fairness); 
 				
 
 				if (logTreeIfExecutionTookMoreThan > 0 && (end - start) > logTreeIfExecutionTookMoreThan) {
-					System.out.println(String.format("Long calculation detected for tree (Fr = %1.3f, %.1fs):",
+					System.out.println(String.format("Long calculation detected for tree (Fa = %1.3f, %.1fs):",
 							fairness, (end - start) / 1000.0));
 					System.out.println(TreeUtils.toString(candidate, registry.getEventClasses()));
 				}
 
 				return fairness;
+				
 			} catch (AStarException e) {
 				e.printStackTrace();
 				return info.getWorstFitnessValue();
