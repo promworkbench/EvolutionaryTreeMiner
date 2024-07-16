@@ -326,6 +326,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 					if (group != null) {
 //						int freq = registry.getaStarAlgorithm().getTraceFreq(trace);
 						group.cost = cost;
+//						System.out.println("Fairness group name: " + group.groupName);
 						if (group.groupName.equalsIgnoreCase("True")) {   
 							costGroupA.addAndGet(cost);		
 							countGroupA.incrementAndGet();
@@ -334,7 +335,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 							countGroupB.incrementAndGet();
 						}
 					} else {
-						System.out.println("Fairness group name is null");
+						System.out.println("Fairness group name: null");
 					}
 				};
 			};
@@ -409,30 +410,22 @@ public class FairnessReplay extends TreeFitnessAbstract {
 					behC.setMarking2ModelMove(marking2modelMove);
 					behC.setMarking2VisitCount(marking2visitCount);
 				}
+
+				double avgA, avgB, fairness = 0;
 				
-				AtomicLong avgA  = new AtomicLong();
-				AtomicLong avgB  = new AtomicLong();
-				avgA.getAndSet(0);
-				avgB.getAndSet(0);
-				// Compute the average cost of group A:-
-				if(countGroupA != null && countGroupA.get() != 0) {
-					costGroupA.updateAndGet( val -> Math.floorDiv(costGroupA.get(), countGroupA.get()));
-					avgA.getAndSet(1);
+				if (costGroupA != null && costGroupB != null) {
+					if (countGroupA != null && countGroupA.get() != 0 && countGroupB != null && countGroupB.get() != 0) {
+						avgA = 1 + ((double) costGroupA.get()) / (int) countGroupA.get();
+						avgB = 1 + ((double) costGroupB.get()) / (int) countGroupB.get();
+						System.out.println("\n Costs of A and B:-" + "\n costGroupA: " + costGroupA + "\n costGroupB: " + costGroupB);
+						System.out.println("\n Counts of A and B:-" + "\n countGroupA " + countGroupA + "\n countGroupB: " + countGroupB);
+						System.out.println("\n Average costs of A and B:-" + "\n avgA: " + avgA + "\n avgB: " + avgB);
+						fairness = Math.sin(2*Math.asin(avgA / Math.sqrt(Math.pow(avgA, 2) + Math.pow(avgB, 2))));		
+					}
+				} else {
+					System.out.println("\n costGroupA or/and costGroupB is/are null!");
 				}
-				// Compute the average cost of group B:-
-				if (countGroupA != null && costGroupB.get() != 0) {
-					costGroupB.updateAndGet( val -> Math.floorDiv(costGroupB.get(), countGroupB.get()));
-					avgB.getAndSet(1);
-				}
-				System.out.println("\n Total costs of A and B:-" + "\n costGroupA: " + costGroupA + "\n costGroupB: " + costGroupB);
-				
-				double fairness = 0;
-				
-				if (avgA.get() == 1 && avgB.get() == 1) {
-					fairness = Math.sin(2*Math.asin(costGroupA.get() / Math.sqrt(Math.pow(costGroupA.get(), 2) + Math.pow(costGroupB.get(), 2))));			
-				}
-				System.out.printf("\n Fairness (Fa):", fairness); 
-				
+				System.out.println("\n Fairness: " + fairness); 	
 
 				if (logTreeIfExecutionTookMoreThan > 0 && (end - start) > logTreeIfExecutionTookMoreThan) {
 					System.out.println(String.format("Long calculation detected for tree (Fa = %1.3f, %.1fs):",
