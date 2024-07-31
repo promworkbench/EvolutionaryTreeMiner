@@ -221,7 +221,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 			String traceName = XUtils.getConceptName(trace); 
 				if (trace.getAttributes().containsKey("fairness:group")) {
 					String groupName = (String) XUtils.getAttributeValue(trace.getAttributes().get("fairness:group")); 
-					this.tracesGroupsCosts.put(traceName, new TraceGroupsCosts(traceName, groupName));
+					this.tracesGroupsCosts.put(traceName, new TraceGroupsCosts(groupName));
 				}
 				else {
 					System.out.println("Fairness:group does not exist!");
@@ -321,12 +321,10 @@ public class FairnessReplay extends TreeFitnessAbstract {
 				@Override
 				public void record(Trace trace, long cost) {
 					TraceGroupsCosts group = tracesGroupsCosts.get(trace.getLabel());
-//					System.out.println("traceName: ." + trace.getLabel().toString());
 					countRecord.getAndIncrement();
 					if (group != null) {
 //						int freq = registry.getaStarAlgorithm().getTraceFreq(trace);
 						group.cost = cost;
-//						System.out.println("Fairness group name: " + group.groupName);
 						if (group.groupName.equalsIgnoreCase("True")) {   
 							costGroupA.addAndGet(cost);		
 							countGroupA.incrementAndGet();
@@ -415,12 +413,14 @@ public class FairnessReplay extends TreeFitnessAbstract {
 				
 				if (costGroupA != null && costGroupB != null) {
 					if (countGroupA != null && countGroupA.get() != 0 && countGroupB != null && countGroupB.get() != 0) {
-						avgA = 1 + ((double) costGroupA.get()) / (int) countGroupA.get();
-						avgB = 1 + ((double) costGroupB.get()) / (int) countGroupB.get();
+						avgA = ((double) costGroupA.get()) / (int) countGroupA.get();
+						avgB = ((double) costGroupB.get()) / (int) countGroupB.get();
 						System.out.println("\n Costs of A and B:-" + "\n costGroupA: " + costGroupA + "\n costGroupB: " + costGroupB);
 						System.out.println("\n Counts of A and B:-" + "\n countGroupA " + countGroupA + "\n countGroupB: " + countGroupB);
 						System.out.println("\n Average costs of A and B:-" + "\n avgA: " + avgA + "\n avgB: " + avgB);
-						fairness = Math.sin(2*Math.asin(avgA / Math.sqrt(Math.pow(avgA, 2) + Math.pow(avgB, 2))));		
+						if (avgA != 0 || avgB != 0) {
+							fairness = Math.sin(2*Math.asin(avgA / Math.sqrt(Math.pow(avgA, 2) + Math.pow(avgB, 2))));		
+						} else fairness = 1;
 					}
 				} else {
 					System.out.println("\n costGroupA or/and costGroupB is/are null!");
