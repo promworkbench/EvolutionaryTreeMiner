@@ -62,9 +62,9 @@ import com.fluxicon.slickerbox.factory.SlickerFactory;
  */
 //FIXME check all class contents
 //FIXME Test Class thoroughly
-public class FairnessReplay extends TreeFitnessAbstract {
+public class FairnessReplayDist extends TreeFitnessAbstract {
 
-	public static final TreeFitnessInfo info = new TreeFitnessInfo(FairnessReplay.class, "FaG", "Replay Fairness (Geometric)",
+	public static final TreeFitnessInfo info = new TreeFitnessInfo(FairnessReplayDist.class, "FaD", "Replay Fairness (Distance)",
 			"Calculates the optimal alignment between the log and the process tree to determine where deviations are",
 			Dimension.FITNESS, true);
 
@@ -119,7 +119,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 	 * 
 	 * @param original
 	 */
-	public FairnessReplay(FairnessReplay original) {
+	public FairnessReplayDist(FairnessReplayDist original) {
 		this(original.registry, original.c, original.fitnessLimit, original.timeLimit,
 				original.detailedAlignmentInfoEnabled, original.maxBytestoUse, 1);
 	}
@@ -137,7 +137,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 	 *            A special canceller that cancels the alignment execution on
 	 *            the users request
 	 */
-	public FairnessReplay(CentralRegistry registry, Canceller c) {
+	public FairnessReplayDist(CentralRegistry registry, Canceller c) {
 		this(registry, c, -1, -1, false, -1, 1);
 	}
 
@@ -162,7 +162,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 	 *            The time limit in seconds that a single-trace alignment
 	 *            calculation can take. A negative value indicates no limit.
 	 */
-	public FairnessReplay(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit) {
+	public FairnessReplayDist(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit) {
 		this(registry, c, fitnessLimit, timeLimit, true, -1, 1);
 	}
 
@@ -203,7 +203,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 	 *            ETM use 1 is recommended and parallel calculations of trees is
 	 *            recommended.
 	 */
-	public FairnessReplay(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit,
+	public FairnessReplayDist(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit,
 			boolean detailedAlignmentInfoEnabled, long maxBytesToUse, int nrThreads) {
 		this.registry = registry;
 		this.c = c;
@@ -410,6 +410,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 				}
 
 				double avgA, avgB, fairness = 0;
+				double Epsilon = 1;
 				
 				// Costs are not null :-
 				if (costGroupA != null && costGroupB != null) {
@@ -423,7 +424,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 						if (avgA == 0 && avgB == 0)  { 
 							fairness = 1;
 						} else { 
-					    	fairness = Math.sin(2*Math.asin((avgA + 1) / Math.sqrt(Math.pow((avgA + 1), 2) + Math.pow((avgB + 1), 2))));
+					    	fairness = 1 - Math.abs((avgA - avgB)/((avgA + avgB + Epsilon)));
 						}
 					} else {
 						System.out.println("\n countGroupA or/and countGroupB is/are null!");
@@ -616,7 +617,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 		this.detailedAlignmentInfoEnabled = detailedAlignmentInfoEnabled;
 	}
 
-	public static class FitnessReplayGUI extends TreeFitnessGUISettingsAbstract<FairnessReplay> {
+	public static class FitnessReplayGUI extends TreeFitnessGUISettingsAbstract<FairnessReplayDist> {
 
 		private static final long serialVersionUID = 1L;
 
@@ -677,14 +678,14 @@ public class FairnessReplay extends TreeFitnessAbstract {
 			this.setPreferredSize(new java.awt.Dimension(300, 30));
 		}
 
-		public FairnessReplay getTreeFitnessInstance(final CentralRegistry registry, Class<TreeFitnessAbstract> clazz) {
+		public FairnessReplayDist getTreeFitnessInstance(final CentralRegistry registry, Class<TreeFitnessAbstract> clazz) {
 			Canceller c = new ProMCancelTerminationCondition(registry.getContext()).getCanceller();
 
-			return new FairnessReplay(registry, c, Double.parseDouble(fitnessLimit.getText()),
+			return new FairnessReplayDist(registry, c, Double.parseDouble(fitnessLimit.getText()),
 					Double.parseDouble(timeLimit.getText()), true, -1, 1);
 		}
 
-		public void init(FairnessReplay instance) {
+		public void init(FairnessReplayDist instance) {
 			fitnessLimit.setText("" + instance.fitnessLimit);
 			timeLimit.setText("" + instance.timeLimit);
 		}
