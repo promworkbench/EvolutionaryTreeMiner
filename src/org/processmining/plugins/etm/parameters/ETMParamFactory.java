@@ -569,14 +569,11 @@ public class ETMParamFactory {
 		Generalization ge = new Generalization(centralRegistry);
 		GeneralizationByFitnessReplayDeviation gd = new GeneralizationByFitnessReplayDeviation(centralRegistry);
 		SimplicityUselessNodes su = new SimplicityUselessNodes();
-		FairnessReplay fa = new FairnessReplay(centralRegistry, 
-				ProMCancelTerminationCondition.buildCanceller(centralRegistry.getContext())) ;
         
 		oF.addEvaluator(fr, STD_REPLAYFITNESS_WEIGHT);
 		oF.addEvaluator(pe, STD_PRECISION_WEIGHT);
 		oF.addEvaluator(ge, STD_GENERALIZATION_WEIGHT);
 		oF.addEvaluator(su, STD_SIMPLICITY_WEIGHT);
-		oF.addEvaluator(fa, STD_FAIRNESS_WEIGHT);
 
 		return oF;
 	}
