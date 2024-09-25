@@ -8,24 +8,35 @@ import gnu.trove.set.TIntSet;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
+import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 
 import nl.tue.astar.AStarException;
 import nl.tue.astar.AStarThread.Canceller;
 import nl.tue.astar.Trace;
 
+import org.deckfour.xes.extension.std.XConceptExtension;
+import org.deckfour.xes.model.XAttribute;
+import org.deckfour.xes.model.XLog;
+import org.deckfour.xes.model.XTrace;
 import org.processmining.framework.util.OsUtil;
 import org.processmining.framework.util.ui.widgets.ProMTextField;
+import org.processmining.log.utils.XUtils;
 import org.processmining.plugins.boudewijn.treebasedreplay.astar.ModelPrefix;
 import org.processmining.plugins.boudewijn.treebasedreplay.astar.TreeMarkingVisit;
 import org.processmining.plugins.etm.CentralRegistry;
 import org.processmining.plugins.etm.fitness.BehaviorCounter;
+import org.processmining.plugins.etm.fitness.TraceGroupsCosts;
 import org.processmining.plugins.etm.fitness.TreeFitnessAbstract;
 import org.processmining.plugins.etm.fitness.TreeFitnessInfo;
 import org.processmining.plugins.etm.fitness.TreeFitnessInfo.Dimension;
@@ -43,18 +54,18 @@ import org.processmining.plugins.etm.termination.ProMCancelTerminationCondition;
 import com.fluxicon.slickerbox.factory.SlickerFactory;
 
 /**
- * Using a specialized replay algorithm based on Adriansyah an alignment between
- * a process tree and the event log is calculated.
+ * The fitness value is computed using a specialized replay algorithm based on Adriansyah an alignment between
+ * a process tree and the event log, which is further equalised between two sublogs. 
  * 
- * @author jbuijs
+ * @author jbuijs, muskan
  * 
  */
 //FIXME check all class contents
 //FIXME Test Class thoroughly
-public class FitnessReplay extends TreeFitnessAbstract {
+public class EqualisedFitnessUsingDistance extends TreeFitnessAbstract {
 
-	public static final TreeFitnessInfo info = new TreeFitnessInfo(FitnessReplay.class, "Fr", "Replay Fitness",
-			"Calculates the optimal alignment between the log and the process tree to determine where deviations are",
+	public static final TreeFitnessInfo info = new TreeFitnessInfo(EqualisedFitnessUsingDistance.class, "FaD", "Replay Fairness (Distance)",
+			"Calculates the equalised fitness using a distance based measure between the minority and majority groups based on a fairness:group boolean attribute in the event log",
 			Dimension.FITNESS, true);
 
 	protected double fitnessLimit;
@@ -65,7 +76,9 @@ public class FitnessReplay extends TreeFitnessAbstract {
 	protected final CentralRegistry registry;
 
 	private boolean lastResultReliable = true;
-
+	
+	private volatile Map<String, TraceGroupsCosts> tracesGroupsCosts = Collections.synchronizedMap(new HashMap<String, TraceGroupsCosts>());
+	
 	/**
 	 * Which configuration of the NAryTree to apply
 	 */
@@ -98,12 +111,15 @@ public class FitnessReplay extends TreeFitnessAbstract {
 	 */
 	private int nrThreads;
 
+	private CostCallback costCallback;
+
+	
 	/**
 	 * Deep-clone copy constructor.
 	 * 
 	 * @param original
 	 */
-	public FitnessReplay(FitnessReplay original) {
+	public EqualisedFitnessUsingDistance(EqualisedFitnessUsingDistance original) {
 		this(original.registry, original.c, original.fitnessLimit, original.timeLimit,
 				original.detailedAlignmentInfoEnabled, original.maxBytestoUse, 1);
 	}
@@ -121,7 +137,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 	 *            A special canceller that cancels the alignment execution on
 	 *            the users request
 	 */
-	public FitnessReplay(CentralRegistry registry, Canceller c) {
+	public EqualisedFitnessUsingDistance(CentralRegistry registry, Canceller c) {
 		this(registry, c, -1, -1, false, -1, 1);
 	}
 
@@ -146,7 +162,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 	 *            The time limit in seconds that a single-trace alignment
 	 *            calculation can take. A negative value indicates no limit.
 	 */
-	public FitnessReplay(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit) {
+	public EqualisedFitnessUsingDistance(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit) {
 		this(registry, c, fitnessLimit, timeLimit, true, -1, 1);
 	}
 
@@ -187,7 +203,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 	 *            ETM use 1 is recommended and parallel calculations of trees is
 	 *            recommended.
 	 */
-	public FitnessReplay(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit,
+	public EqualisedFitnessUsingDistance(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit,
 			boolean detailedAlignmentInfoEnabled, long maxBytesToUse, int nrThreads) {
 		this.registry = registry;
 		this.c = c;
@@ -196,9 +212,24 @@ public class FitnessReplay extends TreeFitnessAbstract {
 		this.timeLimit = timeLimit;
 		this.detailedAlignmentInfoEnabled = detailedAlignmentInfoEnabled;
 		this.maxBytestoUse = maxBytesToUse;
-		this.nrThreads = nrThreads;
+		this.nrThreads = nrThreads; 
+		defineSensitiveGroups(registry);
 	}
-
+	
+	public void defineSensitiveGroups(CentralRegistry registry) {
+		for (XTrace trace: registry.getLog()) {
+			String traceName = XUtils.getConceptName(trace); 
+				if (trace.getAttributes().containsKey("fairness:group")) {
+					String groupName = (String) XUtils.getAttributeValue(trace.getAttributes().get("fairness:group")); 
+					this.tracesGroupsCosts.put(traceName, new TraceGroupsCosts(groupName));
+				}
+				else {
+					System.out.println("Fairness:group does not exist!");
+				}
+		}
+		System.out.println("tracesGroupsCosts size:" + this.tracesGroupsCosts.size()  + " log size:" + registry.getLog().size() ); 
+	}
+ 
 	/**
 	 * {@inheritDoc}
 	 */
@@ -221,7 +252,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 			int[] syncMoveCount = new int[candidate.size()];
 			int[] aSyncMoveCount = new int[candidate.size()];
 			int[] moveCount = new int[candidate.size()];
-
+			
 			NAryTreeReplayer<?, ?, ?> treeBasedAStar = null;
 			try {
 				treeBasedAStar = setupReplayer(candidate, registry.getEmptyAStarAlgorithm(),
@@ -280,8 +311,36 @@ public class FitnessReplay extends TreeFitnessAbstract {
 			// The total move_on_model cost for aligning the empty trace is stored in the last optimal record of treeBasedAStar
 			int rawModelCost = (int) treeBasedAStar.getRawCost();
 
-			treeBasedAStar = setupReplayer(candidate, registry.getaStarAlgorithm(), marking2modelMove,
-					marking2visitCount, modelCosts, syncMoveCount, aSyncMoveCount, moveCount, alignments);
+			AtomicLong costGroupA = new AtomicLong();
+			AtomicLong costGroupB = new AtomicLong();
+			AtomicLong countGroupA = new AtomicLong();
+			AtomicLong countGroupB = new AtomicLong();
+			AtomicLong countRecord = new AtomicLong();
+			
+			costCallback = new  CostCallback() {
+				@Override
+				public void record(Trace trace, long cost) {
+					TraceGroupsCosts group = tracesGroupsCosts.get(trace.getLabel());
+					countRecord.getAndIncrement();
+					if (group != null) {
+//						int freq = registry.getaStarAlgorithm().getTraceFreq(trace);
+						group.cost = cost;
+						if (group.groupName.equalsIgnoreCase("True")) {   
+							costGroupA.addAndGet(cost);		
+							countGroupA.incrementAndGet();
+						} else {
+							costGroupB.addAndGet(cost);	
+							countGroupB.incrementAndGet();
+						}
+					} else {
+						System.out.println("Fairness group name: null");
+					}
+				};
+			};
+						
+			treeBasedAStar = setupReplayer(candidate, 
+					registry.getaStarAlgorithmWithoutGrouping(),  // FM here we need the log without grouping since a trace variant may exist in multiple groups
+					marking2modelMove, marking2visitCount, modelCosts, syncMoveCount, aSyncMoveCount, moveCount, alignments);
 
 			/*
 			 * And run and return it
@@ -317,6 +376,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 					registry.getFitness(candidate).behaviorCounter = new BehaviorCounter(candidate.size());
 					registry.getFitness(candidate).setReliable(false);
 					return info.getWorstFitnessValue();
+	
 				}
 
 				//Calculate the minimal cost for replaying the log on an 'empty' model 
@@ -349,17 +409,39 @@ public class FitnessReplay extends TreeFitnessAbstract {
 					behC.setMarking2VisitCount(marking2visitCount);
 				}
 
-				//Result is the total cost divided by the 'minimal' cost without synchronous moves
-				double fitness = 1.0 - (totalCost / (minLogCost + f * minModelCost));
-//				System.out.println(recordCost + " vs " + totalCost);
+				double avgA, avgB, fairness = 0;
+				double Epsilon = 1;
+				
+				// Costs are not null :-
+				if (costGroupA != null && costGroupB != null) {
+					// Counts are not null or zero :-
+					if (countGroupA != null && countGroupA.get() != 0 && countGroupB != null && countGroupB.get() != 0) {
+						avgA = ((double) costGroupA.get()) / (int) countGroupA.get();
+						avgB = ((double) costGroupB.get()) / (int) countGroupB.get();
+						System.out.println("\n Costs of A and B:-" + "\n costGroupA: " + costGroupA + "\n costGroupB: " + costGroupB);
+						System.out.println("\n Counts of A and B:-" + "\n countGroupA " + countGroupA + "\n countGroupB: " + countGroupB);
+						System.out.println("\n Average costs of A and B:-" + "\n avgA: " + avgA + "\n avgB: " + avgB);
+						if (avgA == 0 && avgB == 0)  { 
+							fairness = 1;
+						} else { 
+					    	fairness = 1 - Math.abs((avgA - avgB)/((avgA + avgB + Epsilon)));
+						}
+					} else {
+						System.out.println("\n countGroupA or/and countGroupB is/are null!");
+					}
+				} else {
+					System.out.println("\n costGroupA or/and costGroupB is/are null!");
+				}
+				System.out.println("\n Fairness: " + fairness);
 
 				if (logTreeIfExecutionTookMoreThan > 0 && (end - start) > logTreeIfExecutionTookMoreThan) {
-					System.out.println(String.format("Long calculation detected for tree (Fr = %1.3f, %.1fs):",
-							fitness, (end - start) / 1000.0));
+					System.out.println(String.format("Long calculation detected for tree (Fa = %1.3f, %.1fs):",
+							fairness, (end - start) / 1000.0));
 					System.out.println(TreeUtils.toString(candidate, registry.getEventClasses()));
 				}
 
-				return fitness;
+				return fairness;
+				
 			} catch (AStarException e) {
 				e.printStackTrace();
 				return info.getWorstFitnessValue();
@@ -415,6 +497,10 @@ public class FitnessReplay extends TreeFitnessAbstract {
 			treeBasedAStar.setType(PerformanceType.MEMORYEFFICIENT, 16 * 1024, alignment);
 			treeBasedAStar.setStubborn(true);
 			treeBasedAStar.setMaxNumberOfBlocksToUse(maxBytestoUse);
+			
+			treeBasedAStar.setCostCallback(costCallback);
+			// TODO : add setCostCallback... casting 
+			
 			return treeBasedAStar;
 		} catch (Exception e) {
 			System.out.println("Candidate: " + candidate);
@@ -531,7 +617,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 		this.detailedAlignmentInfoEnabled = detailedAlignmentInfoEnabled;
 	}
 
-	public static class FitnessReplayGUI extends TreeFitnessGUISettingsAbstract<FitnessReplay> {
+	public static class FitnessReplayGUI extends TreeFitnessGUISettingsAbstract<EqualisedFitnessUsingDistance> {
 
 		private static final long serialVersionUID = 1L;
 
@@ -592,14 +678,14 @@ public class FitnessReplay extends TreeFitnessAbstract {
 			this.setPreferredSize(new java.awt.Dimension(300, 30));
 		}
 
-		public FitnessReplay getTreeFitnessInstance(final CentralRegistry registry, Class<TreeFitnessAbstract> clazz) {
+		public EqualisedFitnessUsingDistance getTreeFitnessInstance(final CentralRegistry registry, Class<TreeFitnessAbstract> clazz) {
 			Canceller c = new ProMCancelTerminationCondition(registry.getContext()).getCanceller();
 
-			return new FitnessReplay(registry, c, Double.parseDouble(fitnessLimit.getText()),
+			return new EqualisedFitnessUsingDistance(registry, c, Double.parseDouble(fitnessLimit.getText()),
 					Double.parseDouble(timeLimit.getText()), true, -1, 1);
 		}
 
-		public void init(FitnessReplay instance) {
+		public void init(EqualisedFitnessUsingDistance instance) {
 			fitnessLimit.setText("" + instance.fitnessLimit);
 			timeLimit.setText("" + instance.timeLimit);
 		}
