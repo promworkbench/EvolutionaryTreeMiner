@@ -54,18 +54,18 @@ import org.processmining.plugins.etm.termination.ProMCancelTerminationCondition;
 import com.fluxicon.slickerbox.factory.SlickerFactory;
 
 /**
- * Using a specialized replay algorithm based on Adriansyah an alignment between
- * a process tree and the event log is calculated.
+ * The fitness value is computed using a specialized replay algorithm based on Adriansyah an alignment between
+ * a process tree and the event log, which is further equalised between two sublogs. 
  * 
- * @author jbuijs
+ * @author jbuijs, muskan
  * 
  */
 //FIXME check all class contents
 //FIXME Test Class thoroughly
-public class FairnessReplay extends TreeFitnessAbstract {
+public class EqualisedFitnessUsingGeometry extends TreeFitnessAbstract {
 
-	public static final TreeFitnessInfo info = new TreeFitnessInfo(FairnessReplay.class, "FaG", "Replay Fairness (Geometric)",
-			"Calculates the optimal alignment between the log and the process tree to determine where deviations are",
+	public static final TreeFitnessInfo info = new TreeFitnessInfo(EqualisedFitnessUsingGeometry.class, "FaG", "Replay Fairness (Geometric)",
+			"Calculates the equalised fitness using a geometric interpretation between the minority and majority groups based on a fairness:group boolean attribute in the event log",
 			Dimension.FITNESS, true);
 
 	protected double fitnessLimit;
@@ -119,7 +119,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 	 * 
 	 * @param original
 	 */
-	public FairnessReplay(FairnessReplay original) {
+	public EqualisedFitnessUsingGeometry(EqualisedFitnessUsingGeometry original) {
 		this(original.registry, original.c, original.fitnessLimit, original.timeLimit,
 				original.detailedAlignmentInfoEnabled, original.maxBytestoUse, 1);
 	}
@@ -137,7 +137,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 	 *            A special canceller that cancels the alignment execution on
 	 *            the users request
 	 */
-	public FairnessReplay(CentralRegistry registry, Canceller c) {
+	public EqualisedFitnessUsingGeometry(CentralRegistry registry, Canceller c) {
 		this(registry, c, -1, -1, false, -1, 1);
 	}
 
@@ -162,7 +162,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 	 *            The time limit in seconds that a single-trace alignment
 	 *            calculation can take. A negative value indicates no limit.
 	 */
-	public FairnessReplay(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit) {
+	public EqualisedFitnessUsingGeometry(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit) {
 		this(registry, c, fitnessLimit, timeLimit, true, -1, 1);
 	}
 
@@ -203,7 +203,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 	 *            ETM use 1 is recommended and parallel calculations of trees is
 	 *            recommended.
 	 */
-	public FairnessReplay(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit,
+	public EqualisedFitnessUsingGeometry(CentralRegistry registry, Canceller c, double fitnessLimit, double timeLimit,
 			boolean detailedAlignmentInfoEnabled, long maxBytesToUse, int nrThreads) {
 		this.registry = registry;
 		this.c = c;
@@ -616,7 +616,7 @@ public class FairnessReplay extends TreeFitnessAbstract {
 		this.detailedAlignmentInfoEnabled = detailedAlignmentInfoEnabled;
 	}
 
-	public static class FitnessReplayGUI extends TreeFitnessGUISettingsAbstract<FairnessReplay> {
+	public static class FitnessReplayGUI extends TreeFitnessGUISettingsAbstract<EqualisedFitnessUsingGeometry> {
 
 		private static final long serialVersionUID = 1L;
 
@@ -677,14 +677,14 @@ public class FairnessReplay extends TreeFitnessAbstract {
 			this.setPreferredSize(new java.awt.Dimension(300, 30));
 		}
 
-		public FairnessReplay getTreeFitnessInstance(final CentralRegistry registry, Class<TreeFitnessAbstract> clazz) {
+		public EqualisedFitnessUsingGeometry getTreeFitnessInstance(final CentralRegistry registry, Class<TreeFitnessAbstract> clazz) {
 			Canceller c = new ProMCancelTerminationCondition(registry.getContext()).getCanceller();
 
-			return new FairnessReplay(registry, c, Double.parseDouble(fitnessLimit.getText()),
+			return new EqualisedFitnessUsingGeometry(registry, c, Double.parseDouble(fitnessLimit.getText()),
 					Double.parseDouble(timeLimit.getText()), true, -1, 1);
 		}
 
-		public void init(FairnessReplay instance) {
+		public void init(EqualisedFitnessUsingGeometry instance) {
 			fitnessLimit.setText("" + instance.fitnessLimit);
 			timeLimit.setText("" + instance.timeLimit);
 		}
