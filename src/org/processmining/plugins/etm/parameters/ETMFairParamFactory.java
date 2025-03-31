@@ -267,7 +267,7 @@ public class ETMFairParamFactory {
 			double geWeight, double sdWeight, double eqdWeight, double eqgWeight) {
 		return buildParam(eventlog, context, popSize, eliteSize, nrRandomTrees, crossOverChance,
 				chanceOfRandomMutation, preventDuplicates, maxGen, targetFitness, frWeight, maxF, maxFTime, peWeight,
-				geWeight, sdWeight, eqdWeight, eqgWeight);
+				geWeight, sdWeight, eqdWeight, eqgWeight, null, 0);
 	}
 
 	/**
