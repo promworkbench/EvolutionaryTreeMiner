@@ -372,7 +372,7 @@ public class FitnessReplay extends TreeFitnessAbstract {
 			Map<TreeMarkingVisit<ModelPrefix>, TIntSet> marking2modelMove,
 			TObjectIntMap<TreeMarkingVisit<ModelPrefix>> marking2visitCount, int[] modelCosts, int[] syncMoveCount,
 			int[] aSyncMoveCount, int[] moveCount, Map<Trace, TreeRecord> alignments) {
-		NAryTreeReplayer<?, ?, ?> treeBasedAStar;
+		NAryTreeReplayerWithBasis2ILP treeBasedAStar;
 		//		if (isCpuEfficient()) {
 		//			if (!caching) {
 		//				treeBasedAStar = new NAryTreeReplayerWithFullILP(algorithm, c, candidate, localConfNr, modelCosts,

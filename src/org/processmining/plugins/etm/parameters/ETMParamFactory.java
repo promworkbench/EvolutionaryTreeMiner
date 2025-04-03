@@ -564,7 +564,7 @@ public class ETMParamFactory {
 		Generalization ge = new Generalization(centralRegistry);
 		GeneralizationByFitnessReplayDeviation gd = new GeneralizationByFitnessReplayDeviation(centralRegistry);
 		SimplicityUselessNodes su = new SimplicityUselessNodes();
-
+        
 		oF.addEvaluator(fr, STD_REPLAYFITNESS_WEIGHT);
 		oF.addEvaluator(pe, STD_PRECISION_WEIGHT);
 		oF.addEvaluator(ge, STD_GENERALIZATION_WEIGHT);
