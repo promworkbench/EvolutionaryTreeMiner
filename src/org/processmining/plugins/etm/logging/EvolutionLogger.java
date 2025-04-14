@@ -18,6 +18,7 @@ package org.processmining.plugins.etm.logging;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -89,7 +90,7 @@ public class EvolutionLogger<T> implements IslandEvolutionObserver<T> {
 				String filename = "./stats/stats_" + timestamp + ".csv";
 				File statsFile = new File(filename);
 
-				//			statsFile.createNewFile();
+				//statsFile.createNewFile();
 				statsFile.setWritable(true);
 				statsFile.setReadable(true);
 
@@ -97,12 +98,12 @@ public class EvolutionLogger<T> implements IslandEvolutionObserver<T> {
 				out = new PrintWriter(fos);
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
 
 			//Write the header line
-			out.println("Timestamp; Generation; Fittest; Average; Deviation; " + "replayFitness; " +
-			//"BehApp; Coverage; " +
-					"bestCandidate");
+			out.println("Timestamp; Generation; Fittest; Average; Deviation;replayFitness;allMeasures;bestCandidate");
 		}
 	}
 
@@ -140,6 +141,7 @@ public class EvolutionLogger<T> implements IslandEvolutionObserver<T> {
 				out.println(sdf.format(cal.getTime()) + " ; " + generation + " ; " + df.format(bestOverallFitness)
 						+ " ; " + df.format(meanFitness) + " ; " + df.format(stddev) + " ; "
 						+ df.format(registry.getFitness(tree).fitnessValues.get(FitnessReplay.info)) + " ; "
+						+ registry.getFitness(tree).fitnessValues.toString() + " ; "
 						//+ df.format(coverage) + " ; "
 						+ bestCandadidateString);
 				out.flush();
