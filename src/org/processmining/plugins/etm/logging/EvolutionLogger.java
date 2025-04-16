@@ -71,8 +71,8 @@ public class EvolutionLogger<T> implements IslandEvolutionObserver<T> {
 		this(context, registry, fileLoggingEnabled, 1);
 	}
 
-	public EvolutionLogger(final PluginContext context, CentralRegistry registry, boolean fileLoggingEnabled,
-			int logModulo) {
+	// Save the  statistics log file by adding a timestamp to the filename:-
+	public EvolutionLogger(final PluginContext context, CentralRegistry registry, boolean fileLoggingEnabled, int logModulo) {
 		super();
 
 		this.context = context;
@@ -106,6 +106,39 @@ public class EvolutionLogger<T> implements IslandEvolutionObserver<T> {
 			out.println("Timestamp; Generation; Fittest; Average; Deviation;replayFitness;allMeasures;bestCandidate");
 		}
 	}
+	
+	// Save the statistics log file using the user-provided relative file path (including filename) :-
+	public EvolutionLogger(final PluginContext context, CentralRegistry registry, boolean fileLoggingEnabled, int logModulo, String logFilePathRelative) {
+			super();
+
+			this.context = context;
+			this.fileLoggingEnabled = fileLoggingEnabled;
+			this.registry = registry;
+			this.logModulo = logModulo;
+			
+			if (this.fileLoggingEnabled) {
+		        try {					
+		            // Make sure the path is treated as relative
+					 String finalPath = "./" + logFilePathRelative.replaceFirst("\\.[^.]*$", "") + ".csv";
+
+		            File statsFile = new File(finalPath);
+		            File parentDir = statsFile.getParentFile();
+		            if (parentDir != null && !parentDir.exists()) {
+		                parentDir.mkdirs();  // create directories if they don't exist
+		            }
+
+		            statsFile.setWritable(true);
+		            statsFile.setReadable(true);
+
+		            fos = new FileOutputStream(statsFile);
+		            out = new PrintWriter(fos);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				// Write the header
+				out.println("Timestamp; Generation; Fittest; Average; Deviation;replayFitness;allMeasures;bestCandidate");
+			}
+}
 
 	public void disableFileLogging() {
 		fileLoggingEnabled = false;
