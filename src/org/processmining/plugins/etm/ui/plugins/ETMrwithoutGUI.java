@@ -24,7 +24,7 @@ import org.uncommonseditedbyjoosbuijs.watchmaker.framework.EvolutionObserver;
 
 @Plugin(
 		name = "Mine a Process Tree with ETMr using parameters and classifier",
-			parameterLabels = { "Process Tree", "Event log", "Classifier", "Parameters", "log File Path Relative"},
+			parameterLabels = { "Process Tree", "Event log", "Classifier", "Parameters", "Log File Path Relative"},
 			returnLabels = { "Process Tree" },
 			returnTypes = { ProcessTree.class },
 			userAccessible = true,
