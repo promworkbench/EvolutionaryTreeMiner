@@ -54,7 +54,7 @@ public class MinimalExample {
 		EvolutionLogger<NAryTree> logger = new EvolutionLogger<NAryTree>(null, param.getCentralRegistry(), false, 1);
 		param.addEvolutionObserver(logger);
 
-		ProcessTree pt = ETMwithoutGUI.minePTWithParameters(null, log, MiningParameters.getDefaultClassifier(), param);
+		ProcessTree pt = ETMwithoutGUI.minePTWithParameters(null, log, MiningParameters.getDefaultClassifier(), param, "./Results/experiment.log");
 
 		@SuppressWarnings("unused")
 		CentralRegistry cr = param.getCentralRegistry();
