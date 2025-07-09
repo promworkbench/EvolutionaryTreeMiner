@@ -47,6 +47,9 @@ import org.processmining.plugins.etm.mutation.mutators.RemoveActivityGuided;
 import org.processmining.plugins.etm.mutation.mutators.RemoveSubtreeRandom;
 import org.processmining.plugins.etm.mutation.mutators.RemoveUselessNode;
 import org.processmining.plugins.etm.mutation.mutators.ReplaceTreeMutation;
+import org.processmining.plugins.etm.mutation.mutators.maikelvaneck.MutateSingleNodeGuided; // Muskan-20June2025: added to make it same as the GUI i.e. ETMOperatorsSettingsStep.java
+import org.processmining.plugins.etm.mutation.mutators.maikelvaneck.ReplaceTreeBySequenceMutation;     // Muskan-20June2025: added to make it same as the GUI i.e. ETMOperatorsSettingsStep.java
+import org.processmining.plugins.etm.mutation.mutators.maikelvaneck.SequenceFactory; // Muskan-20June2025: added to make it same as the GUI i.e. ETMOperatorsSettingsStep.java
 import org.processmining.plugins.etm.termination.ProMCancelTerminationCondition;
 import org.uncommons.maths.random.Probability;
 import org.uncommonseditedbyjoosbuijs.watchmaker.framework.EvolutionaryOperator;
@@ -198,9 +201,10 @@ public class ETMParamFactory {
 		dumbMutators.put(new MutateSingleNodeRandom(registry), 1.);
 		dumbMutators.put(new RemoveSubtreeRandom(registry), 1.);
 		dumbMutators.put(new NormalizationMutation(registry), 1.);
-		dumbMutators.put(new ReplaceTreeMutation(registry), 1.);
+//		dumbMutators.put(new ReplaceTreeMutation(registry), 1.);
+		dumbMutators.put(new ReplaceTreeBySequenceMutation(registry), 1.);        // Muskan-20June2025: changed from TreeMutation in above line, to make it same as the GUI i.e. ETMOperatorsSettingsStep.java
 		dumbMutators.put(new ConfigurationMutator(registry), 10.); //FIXME IS NEVER CALLED... :(
-		TreeMutationCoordinator dumbCoordinator = new TreeMutationCoordinator(dumbMutators, preventDuplicates);
+		TreeMutationCoordinator dumbCoordinator = new TreeMutationCoordinator(dumbMutators, false); // Muskan-20June2025: hardcoded false instead of preventDuplicates, to make it same as the GUI i.e. ETMOperatorsSettingsStep.java
 
 		evolutionaryOperators.add(new GuidedTreeMutationCoordinator(registry, chanceOfRandomMutation,
 				preventDuplicates, smartMutators, dumbCoordinator));
@@ -428,14 +432,18 @@ public class ETMParamFactory {
 		//		smartMutators.put(new MutateLeafClassGuided(centralRegistry), 1.);
 		//		smartMutators.put(new MutateOperatorTypeGuided(centralRegistry), 1.);
 		//		smartMutators.put(new RemoveActivityGuided(centralRegistry), 1.);
-		smartMutators.put(new RemoveUselessNode(centralRegistry), 1.);
-
+//		smartMutators.put(new RemoveUselessNode(centralRegistry), 1.);     // Muskan-20June2025: moved to dumbMutators on line 445, to make it same as the GUI i.e. ETMOperatorsSettingsStep.java
+		smartMutators.put(new MutateSingleNodeGuided(centralRegistry), 0.25); // Muskan-20June2025: added to make it same as the GUI i.e. ETMOperatorsSettingsStep.java
+		
 		LinkedHashMap<TreeMutationAbstract, Double> dumbMutators = new LinkedHashMap<TreeMutationAbstract, Double>();
 		dumbMutators.put(new AddNodeRandom(centralRegistry), 1.);
 		dumbMutators.put(new MutateSingleNodeRandom(centralRegistry), 1.);
 		dumbMutators.put(new RemoveSubtreeRandom(centralRegistry), 1.);
-		dumbMutators.put(new NormalizationMutation(centralRegistry), 1.);
-		dumbMutators.put(new ReplaceTreeMutation(centralRegistry), 1.);
+		dumbMutators.put(new NormalizationMutation(centralRegistry), 0.1);   // Muskan-20June2025: changed from 1. to make it same as the GUI i.e. ETMOperatorsSettingsStep.java
+//		dumbMutators.put(new ReplaceTreeMutation(centralRegistry), 0.25);   // Muskan-20June2025: changed from 1. first and then replaced by the line below, to make it same as the GUI i.e. ETMOperatorsSettingsStep.java
+		dumbMutators.put(new ReplaceTreeBySequenceMutation(centralRegistry), 0.25);   // Muskan-20June2025: changed from TreeMutation above, to make it same as GUI i.e. ETMOperatorsSettingsStep.java
+		dumbMutators.put(new RemoveUselessNode(centralRegistry), 0.1);     // Muskan-20June2025: moved from smartMutators on line 435, to make it same as the GUI i.e. ETMOperatorsSettingsStep.java
+
 		TreeMutationCoordinator dumbCoordinator = new TreeMutationCoordinator(dumbMutators, preventDuplicates);
 
 		evolutionaryOperators.add(new GuidedTreeMutationCoordinator(centralRegistry, chanceOfRandomMutation,
@@ -465,6 +473,7 @@ public class ETMParamFactory {
 		}
 
 		param.setFactory(new TreeFactoryCoordinator(centralRegistry));
+//		param.setFactory(new SequenceFactory(centralRegistry));    // Muskan-20June2025: added to debug, later not needed as it showed no change from the line above; aim was to make it same as the GUI i.e. ETMOperatorsSettingsStep.java
 		param.setMaxThreads(Math.max(Runtime.getRuntime().availableProcessors() / 2, 1));
 	}
 

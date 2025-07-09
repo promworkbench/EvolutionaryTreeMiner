@@ -79,6 +79,7 @@ class ETMOperatorsSettingsStep extends ProMHeaderPanel implements ProMWizardStep
 		crossoverChance = propertiesPanel.addTextField("CrossOver", "" + 0.25);
 		TooltipHelper.addTooltip(propertiesPanel, crossoverChance,
 				"Chance of Crossover, with respect to random tree creation an mutation (in general).");
+		
 		randomTreeCreationChance = propertiesPanel.addTextField("Random Tree Creation", "" + 0.25);
 		TooltipHelper.addTooltip(propertiesPanel, randomTreeCreationChance,
 				"Chance of random tree creation, with respect to crossover an mutation (in general).");
@@ -87,13 +88,16 @@ class ETMOperatorsSettingsStep extends ProMHeaderPanel implements ProMWizardStep
 		randomNodeAddChance = propertiesPanel.addTextField("Random Node addition", "" + 1);
 		TooltipHelper.addTooltip(propertiesPanel, randomNodeAddChance,
 				"If mutation is applied, the chance that a random node is added to the tree");
+		
 		randomNodeRemoveChance = propertiesPanel.addTextField("Random Node removal", "" + 1);
 		TooltipHelper.addTooltip(propertiesPanel, randomNodeRemoveChance,
 				"If mutation is applied, the chance that a random node is removed from the tree");
+		
 		randomNodeMutationChance = propertiesPanel.addTextField("Random Node mutation", "" + 1);
 		TooltipHelper
 				.addTooltip(propertiesPanel, randomNodeMutationChance,
 						"If mutation is applied, the chance that a random node is changed (e.g. operator type of activity) to the tree");
+		
 		randomTreeNormalizationChance = propertiesPanel.addTextField("Normalization", "" + 0.1);
 		TooltipHelper
 				.addTooltip(
@@ -101,6 +105,7 @@ class ETMOperatorsSettingsStep extends ProMHeaderPanel implements ProMWizardStep
 						randomTreeNormalizationChance,
 						"<html>If mutation is applied, the chance that the tree is normalized <br> "
 								+ "(e.g. children with the same operator type as their parent are merged with their parent etc.)</html>");
+		
 		uselessNodeRemovalChance = propertiesPanel.addTextField("Useless node removal", "" + 0.1);
 		TooltipHelper
 				.addTooltip(

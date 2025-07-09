@@ -35,7 +35,7 @@ public class ETMwithoutGUI {
 	private static String logPath= "./Results/testLog.txt";
 	@PluginVariant(
 			variantLabel = "Mine a Process Tree with ETMd using default parameters and provided classifier",
-				requiredParameterLabels = { 0, 1, 2 })
+				requiredParameterLabels = { 0, 1, 3 })
 	public static ProcessTree minePTWithClassifier(final PluginContext context, XLog eventlog, XEventClassifier classifier, String logFilePathRelative) {
 		ETMParam param = ETMParamFactory.buildStandardParam(eventlog, context);
 
