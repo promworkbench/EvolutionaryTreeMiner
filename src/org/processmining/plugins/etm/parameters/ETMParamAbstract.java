@@ -70,6 +70,8 @@ public abstract class ETMParamAbstract<R> {
 	 * algorithm will not log anything but continues working correctly.
 	 */
 	protected String path;
+	
+//	protected String path = ".";  // Muskan-20June2025: to debug why script output is different from GUI 
 
 	protected List<EvolutionaryOperator<NAryTree>> evolutionaryOperators;
 
