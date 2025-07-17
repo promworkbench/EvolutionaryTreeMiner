@@ -425,10 +425,19 @@ public class ETMFairParamFactory {
 			weightedFitnessAlg.put(ge, geWeight);
 		if (sdWeight >= 0)
 			weightedFitnessAlg.put(su, sdWeight);
-		if (eqdWeight >= 0)
-			weightedFitnessAlg.put(eqd, eqdWeight);
-		if (eqgWeight >= 0)
-			weightedFitnessAlg.put(eqg, eqgWeight);  
+		
+//		if (eqdWeight >= 0)
+//			weightedFitnessAlg.put(eqd, eqdWeight);
+//		if (eqgWeight >= 0)
+//			weightedFitnessAlg.put(eqg, eqgWeight);  
+		
+		// Only one of EQD or EQG should be used, prefer EQD over EQG
+		if (eqdWeight > 0) {
+		    weightedFitnessAlg.put(eqd, eqdWeight);
+		} else if (eqgWeight > 0) {
+		    weightedFitnessAlg.put(eqg, eqgWeight);
+		}
+		
 		if (seed != null && seed.length > 0 && seed[0] != null && simWeight >= 0) {
 			//FIXME distinguish automatically when to use absolute(Pareto) or relative (normal)
 			param.setSeed(seed);
